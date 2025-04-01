@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class GameController extends Controller
 {
@@ -14,7 +15,7 @@ class GameController extends Controller
     {
         //
         $games = Game::all();
-        
+        return view('Games.index', compact('games'));
     }
 
     /**
@@ -23,6 +24,7 @@ class GameController extends Controller
     public function create()
     {
         //
+        return view('Games.create');
     }
 
     /**
@@ -31,6 +33,21 @@ class GameController extends Controller
     public function store(Request $request)
     {
         //
+        $request->validate([
+            'name' => 'required',
+            'levels' => 'required|numeric',
+            'release' => 'required|date',
+            'image' => 'required|image',
+        ]);
+        $game= Game::create($request->all());
+        // Guardar la imagen
+        if($request->hasFile('image')){
+            $nombre = $game -> id.'.'.$request->file('image')->getClientOriginalExtension();
+            $img = $request->file('image')->storeAs('img', $nombre, 'public');
+            $game -> image = '/img/'.$nombre;
+            $game -> save();
+        }
+        return redirect()->route('games.index')->with('success', 'Juego creado.');
     }
 
     /**
@@ -47,6 +64,7 @@ class GameController extends Controller
     public function edit(Game $game)
     {
         //
+        return view('Games.edit', compact('game'));
     }
 
     /**
@@ -55,6 +73,26 @@ class GameController extends Controller
     public function update(Request $request, Game $game)
     {
         //
+        $request->validate([
+            'name' => 'required',
+            'levels' => 'required|numeric',
+            'release' => 'required|date',
+        ]);
+        // Verificar si se ha subido una nueva imagen
+        if($request->hasFile('image')){
+            // Eliminar la imagen anterior
+            Storage::disk('public')->delete($game->image);
+        }
+        // Guardar la nueva imagen
+        if($request->hasFile('image')){
+            
+            $nombre = $game -> id.'.'.$request->file('image')->getClientOriginalExtension();
+            $request->file('image')->storeAs('img', $nombre, 'public');
+            $game -> image = '/img/'.$nombre;
+            $game -> save();
+        }
+        $game->update($request->input());
+        return redirect()->route('games.index')->with('success', 'Juego actualizado.');
     }
 
     /**
@@ -63,5 +101,10 @@ class GameController extends Controller
     public function destroy(Game $game)
     {
         //
+        // Eliminar la imagen del almacenamiento
+        Storage::disk('public')->delete($game->image);
+        // Eliminar el juego de la base de datos
+        $game->delete();
+        return redirect()->route('games.index')->with('success', 'Juego eliminado.');
     }
 }
